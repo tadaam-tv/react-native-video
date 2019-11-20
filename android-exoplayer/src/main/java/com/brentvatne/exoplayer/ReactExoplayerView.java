@@ -457,15 +457,16 @@ class ReactExoplayerView extends FrameLayout implements
                 if (player == null) {
 
                     BitrateAdaptionPreset preset = config.getBitrateAdaptionPreset();
-                    TrackSelection.Factory videoTrackSelectionFactory = new AdaptiveTrackSelection.Factory(
+                    TrackSelection.Factory videoTrackSelectionFactory = LimitTrackSelection.buildFactory(
                             preset.minDurationForQualityIncreaseMs(),
                             preset.maxDurationForQualityDecreaseMs(),
                             preset.minDurationToRetainAfterDiscardMs(),
                             preset.bandwidthFraction()
                     );
                     trackSelector = new DefaultTrackSelector(videoTrackSelectionFactory);
-                    trackSelector.setParameters(trackSelector.buildUponParameters()
-                            .setMaxVideoBitrate(maxBitRate == 0 ? Integer.MAX_VALUE : maxBitRate));
+                    trackSelector.setParameters(new DefaultTrackSelector.ParametersBuilder()
+                            .setMaxVideoBitrate(maxBitRate == 0 ? Integer.MAX_VALUE : maxBitRate)
+                            .build());
 
                     DefaultAllocator allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
                     CustomLoadControl.Builder defaultLoadControlBuilder = new CustomLoadControl.Builder();
