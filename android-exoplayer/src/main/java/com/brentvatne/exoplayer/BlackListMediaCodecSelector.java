@@ -12,9 +12,9 @@ import androidx.annotation.Nullable;
 public class BlackListMediaCodecSelector implements MediaCodecSelector {
 
     // list of strings used in blacklisting codecs
-    final static String[] BLACKLISTEDCODECS = {};
+    //final static String[] BLACKLISTEDCODECS = {};
 
-    //final static String[] BLACKLISTEDCODECS = {"OMX.amlogic.avc.decoder.awesome.secure"};
+    final static String[] BLACKLISTEDCODECS = {"OMX.amlogic.avc.decoder.awesome.secure"};
 
     @Override
     public List<MediaCodecInfo> getDecoderInfos(String mimeType, boolean requiresSecureDecoder, boolean requiresTunnelingDecoder) throws MediaCodecUtil.DecoderQueryException {
