@@ -122,6 +122,7 @@ class ReactExoplayerView extends FrameLayout implements
     private long resumePosition;
     private boolean loadVideoStarted;
     private boolean isFullscreen;
+    private int oldUiOptions = View.SYSTEM_UI_FLAG_VISIBLE;
     private boolean isInBackground;
     private boolean isPaused;
     private boolean isBuffering;
@@ -1338,23 +1339,42 @@ class ReactExoplayerView extends FrameLayout implements
         }
         Window window = activity.getWindow();
         View decorView = window.getDecorView();
-        int uiOptions;
+
+        // keep old non-screen options
+        if (fullscreen) {
+            oldUiOptions = decorView.getSystemUiVisibility();
+        }
+
         if (isFullscreen) {
+            int uiOptions;
             if (Util.SDK_INT >= 19) { // 4.4+
-                uiOptions = SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                uiOptions =
+                        // Set the content to appear under the system bars so that the
+                        // content doesn't resize when the system bars hide and show.
+                        SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                         | SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        // Hide the nav bar and status bar
+                        | SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         | SYSTEM_UI_FLAG_FULLSCREEN;
             } else {
-                uiOptions = SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                uiOptions =
+                        // Set the content to appear under the system bars so that the
+                        // content doesn't resize when the system bars hide and show.
+                        SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        // Hide the nav bar and status bar
+                        | SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         | SYSTEM_UI_FLAG_FULLSCREEN;
             }
             eventEmitter.fullscreenWillPresent();
             decorView.setSystemUiVisibility(uiOptions);
             eventEmitter.fullscreenDidPresent();
         } else {
-            uiOptions = View.SYSTEM_UI_FLAG_VISIBLE;
             eventEmitter.fullscreenWillDismiss();
-            decorView.setSystemUiVisibility(uiOptions);
+            decorView.setSystemUiVisibility(oldUiOptions);
             eventEmitter.fullscreenDidDismiss();
         }
     }
