@@ -3,7 +3,6 @@ package com.brentvatne.exoplayer;
 import android.content.Context;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Log;
 
 import com.facebook.react.bridge.Dynamic;
 import com.facebook.react.bridge.ReadableArray;
@@ -61,8 +60,9 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     private static final String PROP_HIDE_SHUTTER_VIEW = "hideShutterView";
     private static final String PROP_CONTROLS = "controls";
 
-    private static final String PROP_DEVICE_ID = "deviceId";
-    private static final String PROP_CUSTOMER_ID = "customerId";
+    private static final String PROP_SRC_DRM = "drm";
+    private static final String PROP_DRM_DEVICE_ID = "deviceId";
+    private static final String PROP_DRM_CUSTOMER_ID = "customerId";
     private static final String PROP_DRM_LICENSE_URL = "licenseUrl";
     private static final String PROP_DRM_TYPE = "drmType";
 
@@ -112,11 +112,22 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
         String uriString = src.hasKey(PROP_SRC_URI) ? src.getString(PROP_SRC_URI) : null;
         String extension = src.hasKey(PROP_SRC_TYPE) ? src.getString(PROP_SRC_TYPE) : null;
         Map<String, String> headers = src.hasKey(PROP_SRC_HEADERS) ? toStringMap(src.getMap(PROP_SRC_HEADERS)) : null;
-
+        Map<String, String> drm = src.hasKey(PROP_SRC_DRM) ? toStringMap(src.getMap(PROP_SRC_DRM)) : null;
 
         if (TextUtils.isEmpty(uriString)) {
             return;
         }
+
+        // setup DRM
+        String drmType = null, licenseUrl = null, customerId = null, deviceId = null;
+        if (drm != null) {
+            drmType = drm.containsKey(PROP_DRM_TYPE) ? drm.get(PROP_DRM_TYPE) : null;
+            licenseUrl = drm.containsKey(PROP_DRM_LICENSE_URL) ? drm.get(PROP_DRM_LICENSE_URL) : null;
+            customerId = drm.containsKey(PROP_DRM_CUSTOMER_ID) ? drm.get(PROP_DRM_CUSTOMER_ID) : null;
+            deviceId = drm.containsKey(PROP_DRM_DEVICE_ID) ? drm.get(PROP_DRM_DEVICE_ID) : null;
+        }
+
+        videoView.setDrm(drmType, licenseUrl, customerId, deviceId);
 
         if (startsWithValidScheme(uriString)) {
             Uri srcUri = Uri.parse(uriString);
@@ -144,39 +155,6 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
                 }
             }
         }
-    }
-
-    @ReactProp(name = PROP_DEVICE_ID)
-    public void setDeviceId(final ReactExoplayerView videoView, final String deviceId) {
-        try {
-            videoView.setDeviceId(deviceId);
-        } catch (Exception ex) {
-            Log.e("CustomerId", ex.toString());
-        }
-    }
-
-    @ReactProp(name = PROP_CUSTOMER_ID)
-    public void setCustomerId(final ReactExoplayerView videoView, final String customerId) {
-        try {
-            videoView.setCustomerId(customerId);
-        } catch (Exception ex) {
-            Log.e("CustomerId", ex.toString());
-        }
-    }
-
-    @ReactProp(name = PROP_DRM_TYPE)
-    public void setDrmName(final ReactExoplayerView videoView, final String drmName) {
-        try {
-            videoView.setDrmName(drmName);
-        } catch (Exception ex) {
-            Log.e("DRM Info", ex.toString());
-        }
-    }
-
-    @ReactProp(name = PROP_DRM_LICENSE_URL)
-    public void setDrmUrl(final ReactExoplayerView videoView, @Nullable String licenseUrl) {
-        Log.d("setDrmUrl", licenseUrl);
-        videoView.setDrmLicenseUrl(licenseUrl);
     }
 
     @ReactProp(name = PROP_RESIZE_MODE)

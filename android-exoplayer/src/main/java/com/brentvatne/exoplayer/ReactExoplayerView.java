@@ -212,42 +212,37 @@ class ReactExoplayerView extends FrameLayout implements
     }
 
     /**
-     * @param drmName
+     * @param drmName DRM type ('widevine', 'playready' or 'cenc')
+     * @param licenseUrl DRM license uri
+     * @param customerId customerId
+     * @param deviceId deviceId or portalId
      */
-    public void setDrmName(String drmName) throws ParserException {
-        switch (Util.toLowerInvariant(drmName)) {
-            case "widevine":
-                this.drmUUID = C.WIDEVINE_UUID;
-                break;
-            case "playready":
-                this.drmUUID = C.PLAYREADY_UUID;
-                break;
-            case "cenc":
-                this.drmUUID = C.CLEARKEY_UUID;
-                break;
-            default:
-                try {
-                    this.drmUUID = UUID.fromString(drmName);
-                } catch (RuntimeException e) {
-                    String errorString = "Unsupported drm type: " + drmName;
-                    eventEmitter.error(errorString, e);
-                    throw new ParserException(errorString);
-                }
+    public void setDrm(String drmName, String licenseUrl, String customerId, String deviceId) {
+        this.drmUUID = C.UUID_NIL;
+        if (drmName != null) {
+            switch (Util.toLowerInvariant(drmName)) {
+                case "widevine":
+                    this.drmUUID = C.WIDEVINE_UUID;
+                    break;
+                case "playready":
+                    this.drmUUID = C.PLAYREADY_UUID;
+                    break;
+                case "cenc":
+                    this.drmUUID = C.CLEARKEY_UUID;
+                    break;
+                default:
+                    try {
+                        this.drmUUID = UUID.fromString(drmName);
+                    } catch (RuntimeException e) {
+                        String errorString = "Unsupported drm type: " + drmName;
+                        eventEmitter.error(errorString, e);
+                    }
+            }
         }
-        Log.d("setDrmLicenseUrl", drmName);
-    }
-
-    public void setCustomerId(String customerId) {
-        this.customerId = customerId;
-    }
-
-    public void setDeviceId(String deviceId) {
-        this.deviceId = deviceId;
-    }
-
-    public void setDrmLicenseUrl(String licenseUrl) {
-        Log.d("setDrmLicenseUrl", licenseUrl);
         this.drmLicenseUrl = licenseUrl;
+        this.customerId = customerId;
+        this.deviceId = deviceId;
+        initializePlayer();
     }
 
     @Override
@@ -456,6 +451,10 @@ class ReactExoplayerView extends FrameLayout implements
             @Override
             public void run() {
                 if (player == null) {
+                    // need drmUUID to initialize DRM session manager
+                    if (drmUUID == null) {
+                        return;
+                    }
 
                     BitrateAdaptionPreset preset = config.getBitrateAdaptionPreset();
                     TrackSelection.Factory videoTrackSelectionFactory = new AdaptiveTrackSelection.Factory(
@@ -478,7 +477,7 @@ class ReactExoplayerView extends FrameLayout implements
                     Log.d(TAG, "defaultLoadControl: " + minBufferMs + " " + maxBufferMs);
 
                     DrmSessionManager<FrameworkMediaCrypto> drmSessionManager = null;
-                    if (drmUUID != null) {
+                    if (drmUUID != C.UUID_NIL) {
                         try {
                             drmSessionManager = buildDrmSessionManager();
                         } catch (UnsupportedDrmException e) {

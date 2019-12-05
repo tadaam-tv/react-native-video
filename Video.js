@@ -251,10 +251,8 @@ export default class Video extends Component {
     if (uri && uri.match(/^\//)) {
       uri = `file://${uri}`;
     }
-    
-    if (!uri) {
-      console.warn('Trying to load empty source.');
-    }
+
+    let drm = source.drm || {};
 
     const isNetwork = !!(uri && uri.match(/^https?:/));
     const isAsset = !!(uri && uri.match(/^(assets-library|ipod-library|file|content|ms-appx|ms-appdata):/));
@@ -278,6 +276,7 @@ export default class Video extends Component {
       resizeMode: nativeResizeMode,
       src: {
         uri,
+        drm,
         isNetwork,
         isAsset,
         shouldCache,
@@ -379,7 +378,15 @@ Video.propTypes = {
   /* Wrapper component */
   source: PropTypes.oneOfType([
     PropTypes.shape({
-      uri: PropTypes.string
+      uri: PropTypes.string,
+      drm: PropTypes.shape({
+        drmType: PropTypes.string,
+        licenseUrl: PropTypes.string,
+        base64CertificateString: PropTypes.string,
+        customerId: PropTypes.string,
+        deviceId: PropTypes.string,
+        authToken: PropTypes.string,
+      }),
     }),
     // Opaque type returned by require('./video.mp4')
     PropTypes.number
@@ -474,12 +481,6 @@ Video.propTypes = {
   onExternalPlaybackChange: PropTypes.func,
 
   /* custom Tadaam props */
-  authToken: PropTypes.string,
-  drmType: PropTypes.string,
-  licenseUrl: PropTypes.string,
-  base64CertificateString: PropTypes.string,
-  customerId: PropTypes.string,
-  deviceId: PropTypes.string,
   mediaMetadata: PropTypes.shape({}),
 
   /* Required by react-native */
