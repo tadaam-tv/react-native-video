@@ -379,6 +379,17 @@ static int const RCTVideoUnset = -1;
 - (void)setSrc:(NSDictionary *)source
 {
   _source = source;
+  
+  NSDictionary* drmInfo = [source objectForKey:@"drm"];
+  if (drmInfo) {
+	  [self setLicenseUrl:[drmInfo objectForKey:@"licenseUrl"]];
+	  [self setAuthToken:[drmInfo objectForKey:@"authToken"]];
+	  [self setDeviceId:[drmInfo objectForKey:@"deviceId"]];
+	  [self setCustomerId:[drmInfo objectForKey:@"customerId"]];
+	  [self setDrmType:[drmInfo objectForKey:@"drmType"]];
+	  [self setBase64CertificateString:[drmInfo objectForKey:@"base64CertificateString"]];
+  }
+	  
   [self removePlayerLayer];
   [self removePlayerTimeObserver];
   [self removePlayerItemObservers];
@@ -1731,6 +1742,12 @@ static int const RCTVideoUnset = -1;
     NSString* contentIdentifierString = requestURL.host;
     NSData* contentIdentifierData = [contentIdentifierString dataUsingEncoding:NSUTF8StringEncoding];
     
+	// LICENSECERTIFICATEDATA MISSING => DRM WON'T WORK.
+    if (!_licenseServerCertificateData) {
+        [loadingRequest.dataRequest respondWithData:nil];
+        [loadingRequest finishLoading];
+    }
+	
     // CALCULATE SPC DATA
     NSError *error = nil;
     NSData *spcData = [loadingRequest streamingContentKeyRequestDataForApp:_licenseServerCertificateData contentIdentifier:contentIdentifierData options:nil error:&error];
@@ -1770,11 +1787,12 @@ static int const RCTVideoUnset = -1;
     // GET LICENSE
     NSURLSession *session = [NSURLSession sessionWithConfiguration:NSURLSessionConfiguration.defaultSessionConfiguration delegate:nil delegateQueue:nil];
     NSURLSessionTask *task = [session dataTaskWithRequest:key_request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-        NSDictionary *dataDict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        NSString *base64licenseString = nil;
-        base64licenseString = dataDict[@"license"];
-        //NSLog(@"TADAAM - base64licenseString: %@", base64licenseString);
-        NSData *encodedLicenseData = nil;
+		NSData *encodedLicenseData = nil;
+		if (data) {
+			NSDictionary *dataDict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        	base64licenseString = dataDict[@"license"];
+		}
+		//NSLog(@"TADAAM - base64licenseString: %@", base64licenseString);
         if (base64licenseString) {
             encodedLicenseData = [[NSData alloc] initWithBase64EncodedString:base64licenseString options:0];
         }
