@@ -1788,6 +1788,7 @@ static int const RCTVideoUnset = -1;
     NSURLSession *session = [NSURLSession sessionWithConfiguration:NSURLSessionConfiguration.defaultSessionConfiguration delegate:nil delegateQueue:nil];
     NSURLSessionTask *task = [session dataTaskWithRequest:key_request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
 		NSData *encodedLicenseData = nil;
+        NSString *base64licenseString = nil;
 		if (data) {
 			NSDictionary *dataDict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
         	base64licenseString = dataDict[@"license"];
