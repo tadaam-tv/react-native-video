@@ -379,16 +379,6 @@ static int const RCTVideoUnset = -1;
 - (void)setSrc:(NSDictionary *)source
 {
   _source = source;
-  
-  NSDictionary* drmInfo = [source objectForKey:@"drm"];
-  if (drmInfo) {
-	  [self setLicenseUrl:[drmInfo objectForKey:@"licenseUrl"]];
-	  [self setAuthToken:[drmInfo objectForKey:@"authToken"]];
-	  [self setDeviceId:[drmInfo objectForKey:@"deviceId"]];
-	  [self setCustomerId:[drmInfo objectForKey:@"customerId"]];
-	  [self setDrmType:[drmInfo objectForKey:@"drmType"]];
-	  [self setBase64CertificateString:[drmInfo objectForKey:@"base64CertificateString"]];
-  }
 	  
   [self removePlayerLayer];
   [self removePlayerTimeObserver];
@@ -413,6 +403,17 @@ static int const RCTVideoUnset = -1;
         [_player removeObserver:self forKeyPath:externalPlaybackActive context:nil];
         _isExternalPlaybackActiveObserverRegistered = NO;
       }
+	  
+	  // TDM: prepare DRM info for protected streams
+	  NSDictionary* drmInfo = [source objectForKey:@"drm"];
+	  if (drmInfo) {
+		  [self setLicenseUrl:[drmInfo objectForKey:@"licenseUrl"]];
+		  [self setAuthToken:[drmInfo objectForKey:@"authToken"]];
+		  [self setDeviceId:[drmInfo objectForKey:@"deviceId"]];
+		  [self setCustomerId:[drmInfo objectForKey:@"customerId"]];
+		  [self setDrmType:[drmInfo objectForKey:@"drmType"]];
+		  [self setBase64CertificateString:[drmInfo objectForKey:@"base64CertificateString"]];
+	  }
         
       _player = [AVPlayer playerWithPlayerItem:_playerItem];
       _player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
@@ -1733,6 +1734,7 @@ static int const RCTVideoUnset = -1;
 }
 #endif
 
+// TDM: ADDED DRM HANDLING DELEGATE
 #pragma mark - AVAssetResourceLoaderDelegate
 
 -(BOOL) resourceLoader:(AVAssetResourceLoader *)resourceLoader shouldWaitForLoadingOfRequestedResource:(AVAssetResourceLoadingRequest *)loadingRequest {
@@ -1742,10 +1744,9 @@ static int const RCTVideoUnset = -1;
     NSString* contentIdentifierString = requestURL.host;
     NSData* contentIdentifierData = [contentIdentifierString dataUsingEncoding:NSUTF8StringEncoding];
     
-	// LICENSECERTIFICATEDATA MISSING => DRM WON'T WORK.
-    if (!_licenseServerCertificateData) {
-        [loadingRequest.dataRequest respondWithData:nil];
-        [loadingRequest finishLoading];
+	// LICENSECERTIFICATEDATA OR CONTENTIDENTIFIERSTRING MISSING => DRM WON'T WORK.
+    if (!_licenseServerCertificateData || !contentIdentifierData) {
+        return false;
     }
 	
     // CALCULATE SPC DATA
