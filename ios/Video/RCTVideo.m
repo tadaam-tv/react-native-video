@@ -73,7 +73,6 @@ static int const RCTVideoUnset = -1;
   BOOL _pictureInPicture;
   NSString * _ignoreSilentSwitch;
   NSString * _resizeMode;
-  BOOL _fullscreen;
   BOOL _fullscreenAutorotate;
   NSString * _fullscreenOrientation;
   BOOL _fullscreenPlayerPresented;
@@ -96,6 +95,7 @@ static int const RCTVideoUnset = -1;
   NSString* _licenseUrl;
   NSString* _drmType;
   NSString* _authToken;
+  BOOL _statusBarHidden;
 }
 
 - (instancetype)initWithEventDispatcher:(RCTEventDispatcher *)eventDispatcher
@@ -137,6 +137,8 @@ static int const RCTVideoUnset = -1;
     _licenseUrl = nil;
     _authToken = nil;
       
+    _statusBarHidden = NO;
+
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(applicationWillResignActive:)
                                                  name:UIApplicationWillResignActiveNotification
@@ -236,6 +238,9 @@ static int const RCTVideoUnset = -1;
     
   // TDM: Stop KeepAwake
   [[UIApplication sharedApplication] setIdleTimerDisabled:NO];
+  if (_statusBarHidden) {
+    [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationFade];
+  }
 }
 
 #pragma mark - App lifecycle handlers
@@ -1423,6 +1428,13 @@ static int const RCTVideoUnset = -1;
     [self removePlayerTimeObserver];
     [self addPlayerTimeObserver];
   }
+}
+
+- (void)setStatusBarHidden:(BOOL)hidden {
+    _statusBarHidden = hidden;
+    if (_statusBarHidden) {
+      [[UIApplication sharedApplication] setStatusBarHidden:_statusBarHidden withAnimation:UIStatusBarAnimationFade];
+    }
 }
 
 // TDM: setLicenseUrl for DRM
