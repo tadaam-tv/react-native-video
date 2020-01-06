@@ -176,7 +176,7 @@ class ReactExoplayerView extends FrameLayout implements
                     if (player != null
                             && player.getPlaybackState() == Player.STATE_READY
                             && player.getPlayWhenReady()
-                            ) {
+                    ) {
                         long pos = player.getCurrentPosition();
                         long bufferedDuration = player.getBufferedPercentage() * player.getDuration() / 100;
                         long currentBitrate = player.getVideoFormat() != null? player.getVideoFormat().bitrate : 0;
@@ -468,13 +468,12 @@ class ReactExoplayerView extends FrameLayout implements
                             .setMaxVideoBitrate(maxBitRate == 0 ? Integer.MAX_VALUE : maxBitRate));
 
                     DefaultAllocator allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
-                    CustomLoadControl.Builder defaultLoadControlBuilder = new CustomLoadControl.Builder();
+                    DefaultLoadControl.Builder defaultLoadControlBuilder = new DefaultLoadControl.Builder();
                     defaultLoadControlBuilder.setAllocator(allocator);
                     defaultLoadControlBuilder.setBufferDurationsMs(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs);
                     defaultLoadControlBuilder.setTargetBufferBytes(-1);
                     defaultLoadControlBuilder.setPrioritizeTimeOverSizeThresholds(true);
-                    CustomLoadControl defaultLoadControl = defaultLoadControlBuilder.createDefaultLoadControl();
-                    Log.d(TAG, "defaultLoadControl: " + minBufferMs + " " + maxBufferMs);
+                    DefaultLoadControl defaultLoadControl = defaultLoadControlBuilder.createDefaultLoadControl();
 
                     DrmSessionManager<FrameworkMediaCrypto> drmSessionManager = null;
                     if (drmUUID != C.UUID_NIL) {
@@ -828,7 +827,7 @@ class ReactExoplayerView extends FrameLayout implements
         the video is not paused). This clears all existing messages.
      */
     private void clearProgressMessageHandler() {
-         progressHandler.removeMessages(SHOW_PROGRESS);
+        progressHandler.removeMessages(SHOW_PROGRESS);
     }
 
     private void videoLoaded() {
@@ -863,7 +862,7 @@ class ReactExoplayerView extends FrameLayout implements
             audioTrack.putString("type", format.sampleMimeType);
             audioTrack.putString("language", format.language != null ? format.language : "");
             audioTrack.putString("bitrate", format.bitrate == Format.NO_VALUE ? ""
-                                    : String.format(Locale.US, "%.2fMbps", format.bitrate / 1000000f));
+                    : String.format(Locale.US, "%.2fMbps", format.bitrate / 1000000f));
             audioTracks.pushMap(audioTrack);
         }
         return audioTracks;
@@ -907,13 +906,13 @@ class ReactExoplayerView extends FrameLayout implements
 
         TrackGroupArray groups = info.getTrackGroups(index);
         for (int i = 0; i < groups.length; ++i) {
-             Format format = groups.get(i).getFormat(0);
-             WritableMap textTrack = Arguments.createMap();
-             textTrack.putInt("index", i);
-             textTrack.putString("title", format.id != null ? format.id : "");
-             textTrack.putString("type", format.sampleMimeType);
-             textTrack.putString("language", format.language != null ? format.language : "");
-             textTracks.pushMap(textTrack);
+            Format format = groups.get(i).getFormat(0);
+            WritableMap textTrack = Arguments.createMap();
+            textTrack.putInt("index", i);
+            textTrack.putString("title", format.id != null ? format.id : "");
+            textTrack.putString("type", format.sampleMimeType);
+            textTrack.putString("language", format.language != null ? format.language : "");
+            textTracks.pushMap(textTrack);
         }
         return textTracks;
     }
@@ -945,15 +944,6 @@ class ReactExoplayerView extends FrameLayout implements
                 && player.getRepeatMode() == Player.REPEAT_MODE_ONE) {
             eventEmitter.end();
         }
-    }
-
-    @Override
-    public void onTimelineChanged(Timeline timeline, Object manifest, int reason) {
-        Log.d("onTimelineChanged",
-        " bufferedPosition, " + player.getBufferedPosition() +
-        ", totalBufferedDuration, " +  player.getTotalBufferedDuration() +
-        ", currentPosition, " + player.getCurrentPosition());
-        eventEmitter.bufferProgress(player.getBufferedPosition(), player.getTotalBufferedDuration());
     }
 
     @Override
@@ -1296,12 +1286,12 @@ class ReactExoplayerView extends FrameLayout implements
     }
 
     public void setRateModifier(float newRate) {
-      rate = newRate;
+        rate = newRate;
 
-      if (player != null) {
-          PlaybackParameters params = new PlaybackParameters(rate, 1f);
-          player.setPlaybackParameters(params);
-      }
+        if (player != null) {
+            PlaybackParameters params = new PlaybackParameters(rate, 1f);
+            player.setPlaybackParameters(params);
+        }
     }
 
     public void setMaxBitRateModifier(int newMaxBitRate) {
@@ -1351,22 +1341,22 @@ class ReactExoplayerView extends FrameLayout implements
                         // Set the content to appear under the system bars so that the
                         // content doesn't resize when the system bars hide and show.
                         SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        // Hide the nav bar and status bar
-                        | SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | SYSTEM_UI_FLAG_FULLSCREEN;
+                                | SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                                | SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                                | SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                                // Hide the nav bar and status bar
+                                | SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                                | SYSTEM_UI_FLAG_FULLSCREEN;
             } else {
                 uiOptions =
                         // Set the content to appear under the system bars so that the
                         // content doesn't resize when the system bars hide and show.
                         SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        // Hide the nav bar and status bar
-                        | SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | SYSTEM_UI_FLAG_FULLSCREEN;
+                                | SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                                | SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                                // Hide the nav bar and status bar
+                                | SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                                | SYSTEM_UI_FLAG_FULLSCREEN;
             }
             eventEmitter.fullscreenWillPresent();
             decorView.setSystemUiVisibility(uiOptions);
