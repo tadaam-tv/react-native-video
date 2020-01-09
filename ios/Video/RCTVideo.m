@@ -238,9 +238,11 @@ static int const RCTVideoUnset = -1;
     
   // TDM: Stop KeepAwake
   [[UIApplication sharedApplication] setIdleTimerDisabled:NO];
+  #if TARGET_OS_IOS
   if (_statusBarHidden) {
     [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationFade];
   }
+  #endif
 }
 
 #pragma mark - App lifecycle handlers
@@ -1432,9 +1434,11 @@ static int const RCTVideoUnset = -1;
 
 - (void)setStatusBarHidden:(BOOL)hidden {
     _statusBarHidden = hidden;
+    #if TARGET_OS_IOS
     if (_statusBarHidden) {
       [[UIApplication sharedApplication] setStatusBarHidden:_statusBarHidden withAnimation:UIStatusBarAnimationFade];
     }
+    #endif
 }
 
 // TDM: setLicenseUrl for DRM
