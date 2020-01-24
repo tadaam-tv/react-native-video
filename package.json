@@ -1,8 +1,8 @@
 {
   "name": "react-native-video",
-  "version": "5.1.0-alpha1-17",
+  "version": "5.1.0-alpha1-18",
   "description": "A <Video /> element for react-native",
-  "main": "Video.js",
+  "main": "Video",
   "license": "MIT",
   "author": "Brent Vatne <brentvatne@gmail.com> (https://github.com/brentvatne)",
   "contributors": [
