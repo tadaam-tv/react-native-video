@@ -8,6 +8,7 @@ import styles from './Video.styles';
 const progressUpdateInterval = 250.0;
 const defaultKeyRobustness = 'HW_SECURE_ALL';
 const lowestKeyRobustness = 'SW_SECURE_CRYPTO';
+const drmErrorCode = 'TDM_PLAYER_DRM011';
 
 class Video extends Component {
   constructor(props) {
@@ -33,6 +34,7 @@ class Video extends Component {
       video.addEventListener('loadeddata', this.onLoad);
       video.addEventListener('canplay', this.onReadyForDisplay);
       video.addEventListener('pause', this.onPause);
+      video.addEventListener('play', this.onPlay);
     } else {
       // This browser does not have the minimum set of APIs we need.
       console.error('Browser not supported!');
@@ -82,7 +84,7 @@ class Video extends Component {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  onError(error) {
+  onError(error, code = null) {
     // Log the error.
     const { onError } = this.props;
     if (onError) {
@@ -90,22 +92,27 @@ class Video extends Component {
         error: {
           title: 'Native player error',
           message: `${JSON.stringify(error)}`,
+          code,
         },
       });
     }
   }
 
   onProgress = () => {
-    if (!this.videoRef.current) {
+    const video = this.videoRef.current;
+    if (!video) {
       return;
     }
 
     const { player } = window;
-    const bandwidth = player ? player.getStats().streamBandwidth : 0;
+    let bandwidth = 0;
+    if (player) {
+      bandwidth = player.getStats().streamBandwidth;
+    }
 
     const payload = {
-      currentTime: this.videoRef.current.currentTime,
-      seekableDuration: this.videoRef.current.duration,
+      currentTime: video.currentTime,
+      seekableDuration: this.seekableDuration,
       streamBitRate: bandwidth,
     };
 
@@ -142,12 +149,28 @@ class Video extends Component {
     this.startProgressTimer();
   };
 
+  get seekableDuration() {
+    // get seekable duration from player's seekrange instead of video duration
+    // for open streams this gives a correct result.
+    let seekableDuration = 0;
+    if (player) {
+      const {start, end} = player.seekRange();
+      seekableDuration = (end - start);
+      console.log('TIZEN', `Video.seekableDuration ${start} ${end}: ${end - start} `);
+    }
+    return seekableDuration;
+  }
+
   onLoad = () => {
-    const width = this.videoRef.current.videoWidth;
-    const height = this.videoRef.current.videoHeight;
+    const video = this.videoRef.current;
+    if (!video) {
+      return;
+    };
+
+    const { width, height, currentTime: currentPosition} = video;
     const payload = {
-      currentPosition: this.videoRef.current.currentTime,
-      duration: this.videoRef.current.duration,
+      currentPosition,
+      duration: this.seekableDuration,
       naturalSize: {
         width,
         height,
@@ -329,7 +352,7 @@ class Video extends Component {
             response.data = toByteArray(rawLicenseBase64);
           } catch (error) {
             // notify drm issue
-            this.onError(error);
+            this.onError(error, drmErrorCode);
           }
         }
       });
