@@ -1,14 +1,14 @@
-import React, { Component } from 'react';
-import { createElement } from 'react-native';
-import { fromByteArray, toByteArray } from 'base64-js';
-import shaka from 'shaka-player';
-import PropTypes from 'prop-types';
-import styles from './Video.styles';
+import React, { Component } from "react";
+import { createElement } from "react-native";
+import { fromByteArray, toByteArray } from "base64-js";
+import shaka from "shaka-player";
+import PropTypes from "prop-types";
+import styles from "./Video.styles";
 
 const progressUpdateInterval = 250.0;
-const defaultKeyRobustness = 'HW_SECURE_ALL';
-const lowestKeyRobustness = 'SW_SECURE_CRYPTO';
-const drmErrorCode = 'TDM_PLAYER_DRM011';
+const defaultKeyRobustness = "HW_SECURE_ALL";
+const lowestKeyRobustness = "SW_SECURE_CRYPTO";
+const drmErrorCode = "TDM_PLAYER_DRM011";
 
 class Video extends Component {
   constructor(props) {
@@ -29,15 +29,15 @@ class Video extends Component {
       this.buildPlayer(video);
 
       // init video
-      video.addEventListener('error', this.onErrorEvent);
-      video.addEventListener('ended', this.onEnd);
-      video.addEventListener('loadeddata', this.onLoad);
-      video.addEventListener('canplay', this.onReadyForDisplay);
-      video.addEventListener('pause', this.onPause);
-      video.addEventListener('play', this.onPlay);
+      video.addEventListener("error", this.onErrorEvent);
+      video.addEventListener("ended", this.onEnd);
+      video.addEventListener("loadeddata", this.onLoad);
+      video.addEventListener("canplay", this.onReadyForDisplay);
+      video.addEventListener("pause", this.onPause);
+      video.addEventListener("play", this.onPlay);
     } else {
       // This browser does not have the minimum set of APIs we need.
-      console.error('Browser not supported!');
+      console.error("Browser not supported!");
     }
   }
 
@@ -65,12 +65,12 @@ class Video extends Component {
   componentWillUnmount() {
     const video = this.videoRef.current;
     if (video) {
-      video.removeEventListener('error', this.onErrorEvent);
-      video.removeEventListener('ended', this.onEnd);
-      video.removeEventListener('loadeddata', this.onLoad);
-      video.removeEventListener('canplay', this.onReadyForDisplay);
-      video.removeEventListener('pause', this.onPause);
-      video.removeEventListener('play', this.onPlay);
+      video.removeEventListener("error", this.onErrorEvent);
+      video.removeEventListener("ended", this.onEnd);
+      video.removeEventListener("loadeddata", this.onLoad);
+      video.removeEventListener("canplay", this.onReadyForDisplay);
+      video.removeEventListener("pause", this.onPause);
+      video.removeEventListener("play", this.onPlay);
     }
     this.stopProgressTimer();
 
@@ -90,10 +90,10 @@ class Video extends Component {
     if (onError) {
       onError({
         error: {
-          title: 'Native player error',
+          title: "Native player error",
           message: `${JSON.stringify(error)}`,
-          code,
-        },
+          code
+        }
       });
     }
   }
@@ -113,7 +113,7 @@ class Video extends Component {
     const payload = {
       currentTime: video.currentTime,
       seekableDuration: this.seekableDuration,
-      streamBitRate: bandwidth,
+      streamBitRate: bandwidth
     };
 
     // notify
@@ -154,9 +154,12 @@ class Video extends Component {
     // for open streams this gives a correct result.
     let seekableDuration = 0;
     if (player) {
-      const {start, end} = player.seekRange();
-      seekableDuration = (end - start);
-      console.log('TIZEN', `Video.seekableDuration ${start} ${end}: ${end - start} `);
+      const { start, end } = player.seekRange();
+      seekableDuration = end - start;
+      console.log(
+        "TIZEN",
+        `Video.seekableDuration ${start} ${end}: ${end - start} `
+      );
     }
     return seekableDuration;
   }
@@ -165,17 +168,17 @@ class Video extends Component {
     const video = this.videoRef.current;
     if (!video) {
       return;
-    };
+    }
 
-    const { width, height, currentTime: currentPosition} = video;
+    const { width, height, currentTime: currentPosition } = video;
     const payload = {
       currentPosition,
       duration: this.seekableDuration,
       naturalSize: {
         width,
         height,
-        orientation: width >= height ? 'landscape' : 'portrait',
-      },
+        orientation: width >= height ? "landscape" : "portrait"
+      }
     };
     // notify
     const { onLoad } = this.props;
@@ -189,7 +192,7 @@ class Video extends Component {
   }
 
   arrayBufferToBase64(buffer) {
-    let binary = '';
+    let binary = "";
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
     for (let i = 0; i < len; i += 1) {
@@ -260,38 +263,38 @@ class Video extends Component {
           enabled: true,
 
           // The minimum amount of time that must pass between switches, in seconds. This keeps us from changing too often and annoying the user.
-          switchInterval: 5,
+          switchInterval: 5
         },
         // https://shaka-player-demo.appspot.com/docs/api/shaka.extern.html#.StreamingConfiguration
         streaming: {
           // The minimum number of seconds of content that the StreamingEngine must buffer before it can begin playback or can
           // continue playback after it has entered into a buffering state (i.e., after it has depleted one more more of its buffers).
-          rebufferingGoal: 2,
+          rebufferingGoal: 5,
 
           // bufferingGoal: The number of seconds of content that the StreamingEngine will attempt to buffer ahead of the playhead.
           // This value must be greater than or equal to the rebuffering goal.
-          bufferingGoal: 6,
+          bufferingGoal: 6
         },
         drm: {
           servers: {
-            'com.widevine.alpha': licenseUrl,
+            "com.widevine.alpha": licenseUrl
           },
           advanced: {
-            'com.widevine.alpha': {
+            "com.widevine.alpha": {
               persistentStateRequired: true,
               videoRobustness: drmKeyRobustness,
-              audioRobustness: drmKeyRobustness,
+              audioRobustness: drmKeyRobustness
               // videoRobustness: 'SW_SECURE_CRYPTO',
               // audioRobustness: 'SW_SECURE_CRYPTO',
-            },
-          },
+            }
+          }
         },
         manifest: {
           dash: {
-            ignoreMinBufferTime: true,
+            ignoreMinBufferTime: true
             // defaultPresentationDelay: 20,
-          },
-        },
+          }
+        }
       });
 
       // attach new request filter
@@ -306,20 +309,20 @@ class Video extends Component {
           const wrapped = {};
           wrapped.LatensRegistration = {
             CustomerName: customerId,
-            AccountName: 'PlayReadyAccount',
+            AccountName: "PlayReadyAccount",
             PortalId: deviceId,
-            FriendlyName: 'ShakaPlayer',
+            FriendlyName: "ShakaPlayer",
             DeviceInfo: {
-              FormatVersion: '1',
-              DeviceType: 'Web',
-              OSType: 'Tizen',
-              OSVersion: '0.0.0',
-              DRMProvider: 'Google',
-              DRMVersion: '1.4.8.86',
-              DRMType: 'Widevine',
-              DeviceVendor: 'Samsung',
-              DeviceModel: 'Tizen',
-            },
+              FormatVersion: "1",
+              DeviceType: "Web",
+              OSType: "Tizen",
+              OSVersion: "0.0.0",
+              DRMProvider: "Google",
+              DRMVersion: "1.4.8.86",
+              DRMType: "Widevine",
+              DeviceVendor: "Samsung",
+              DeviceModel: "Tizen"
+            }
           };
 
           wrapped.Payload = fromByteArray(new Uint8Array(request.body));
@@ -336,7 +339,7 @@ class Video extends Component {
           try {
             const responseString = String.fromCharCode.apply(
               String,
-              new Uint8Array(response.data),
+              new Uint8Array(response.data)
             );
             let responseJson;
             try {
@@ -373,7 +376,7 @@ class Video extends Component {
         else if (code === 7000 || code === 7001) {
           // silently catch LOAD_INTERRUPTED (7000) and OPERATION_ABORTED (7001) errors when switching to a new stream
         } else {
-          console.log('LOAD', `${JSON.stringify(error)}`);
+          console.log("LOAD", `${JSON.stringify(error)}`);
           throw error;
         }
       }
@@ -438,11 +441,11 @@ class Video extends Component {
 
   render() {
     const { repeat, style, resizeMode } = this.props;
-    const videoElement = createElement('video', {
+    const videoElement = createElement("video", {
       ref: this.videoRef,
       autoPlay: true,
       loop: repeat,
-      style: [style, styles.video, { objectFit: resizeMode }],
+      style: [style, styles.video, { objectFit: resizeMode }]
     });
     return videoElement;
   }
@@ -458,14 +461,14 @@ Video.propTypes = {
       licenseUrl: PropTypes.string,
       deviceId: PropTypes.string,
       customerId: PropTypes.string,
-      castToken: PropTypes.string,
-    }),
+      castToken: PropTypes.string
+    })
   }),
   onLoad: PropTypes.func,
   onProgress: PropTypes.func,
   onReadyForDisplay: PropTypes.func,
   onEnd: PropTypes.func,
-  onError: PropTypes.func,
+  onError: PropTypes.func
 };
 
 Video.defaultProps = {
@@ -474,13 +477,13 @@ Video.defaultProps = {
   paused: false,
   source: {
     uri: null,
-    drm: {},
+    drm: {}
   },
   onLoad: () => {},
   onProgress: () => {},
   onReadyForDisplay: () => {},
   onEnd: () => {},
-  onError: () => {},
+  onError: () => {}
 };
 
 export default Video;
