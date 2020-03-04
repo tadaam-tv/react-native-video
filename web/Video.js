@@ -37,7 +37,7 @@ class Video extends Component {
       video.addEventListener("play", this.onPlay);
     } else {
       // This browser does not have the minimum set of APIs we need.
-      console.error("Browser not supported!");
+      this.logMessage("Init", "Browser not supported!");
     }
   }
 
@@ -79,6 +79,7 @@ class Video extends Component {
   }
 
   onErrorEvent(event) {
+    this.logMessage("onErrorEvent", JSON.stringify(event));
     // Extract the shaka.util.Error object from the event.
     this.onError(event.detail);
   }
@@ -124,6 +125,7 @@ class Video extends Component {
   };
 
   onEnd = () => {
+    this.logMessage("onEnd");
     this.onProgress();
     this.stopProgressTimer();
 
@@ -135,6 +137,7 @@ class Video extends Component {
   };
 
   onReadyForDisplay = () => {
+    this.logMessage("onReadyForDisplay");
     const { onReadyForDisplay } = this.props;
     if (onReadyForDisplay) {
       onReadyForDisplay();
@@ -142,10 +145,12 @@ class Video extends Component {
   };
 
   onPause = () => {
+    this.logMessage("onPause");
     this.stopProgressTimer();
   };
 
   onPlay = () => {
+    this.logMessage("onPlay");
     this.startProgressTimer();
   };
 
@@ -156,10 +161,6 @@ class Video extends Component {
     if (player) {
       const { start, end } = player.seekRange();
       seekableDuration = end - start;
-      console.log(
-        "TIZEN",
-        `Video.seekableDuration ${start} ${end}: ${end - start} `
-      );
     }
     return seekableDuration;
   }
@@ -205,10 +206,9 @@ class Video extends Component {
     try {
       const { source } = this.props;
 
-      // create player instance once
-      if (!window.player) {
-        window.player = new shaka.Player();
-      }
+      // create player instance
+      window.player = new shaka.Player();
+
       // attach video
       const video = this.videoRef.current;
       if (video) {
@@ -222,11 +222,19 @@ class Video extends Component {
     }
   }
 
+  logMessage(msg, body) {
+    const { onDebug } = this.props;
+    if (onDebug) {
+      onDebug(msg, body);
+    }
+  }
+
   shutdownPlayer() {
     const { player } = window;
     if (player) {
       // detach from view
       player.detach();
+      this.logMessage("shutdown");
 
       // make sure no request/response filters are registered
       player.getNetworkingEngine().clearAllRequestFilters();
@@ -242,12 +250,14 @@ class Video extends Component {
       if (!uri) {
         return;
       }
+      this.logMessage("init", JSON.stringify(source));
+
       // optional drm object
       const { customerId, deviceId, licenseUrl } = drm || {};
       const { drmKeyRobustness } = this.state;
 
       // reconfigure player
-      player.configure({
+      const configSuccess = player.configure({
         // https://shaka-player-demo.appspot.com/docs/api/shaka.extern.html#.AbrConfiguration
         abr: {
           // bandwidthDowngradeTarget: The largest fraction of the estimated bandwidth we should use. We should downgrade to avoid this.
@@ -263,7 +273,7 @@ class Video extends Component {
           enabled: true,
 
           // The minimum amount of time that must pass between switches, in seconds. This keeps us from changing too often and annoying the user.
-          switchInterval: 5
+          switchInterval: 10
         },
         // https://shaka-player-demo.appspot.com/docs/api/shaka.extern.html#.StreamingConfiguration
         streaming: {
@@ -297,6 +307,8 @@ class Video extends Component {
         }
       });
 
+      this.logMessage("config", `success: ${configSuccess}`);
+
       // attach new request filter
       player.getNetworkingEngine().clearAllRequestFilters();
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
@@ -328,6 +340,8 @@ class Video extends Component {
           wrapped.Payload = fromByteArray(new Uint8Array(request.body));
           const wrappedJson = JSON.stringify(wrapped);
           request.body = fromByteArray(new TextEncoder().encode(wrappedJson));
+
+          this.logMessage("LicenseRequest", request.body);
         }
       });
 
@@ -341,6 +355,7 @@ class Video extends Component {
               String,
               new Uint8Array(response.data)
             );
+            this.logMessage("LicenseResponse", responseString);
             let responseJson;
             try {
               responseJson = JSON.parse(responseString);
@@ -355,6 +370,7 @@ class Video extends Component {
             response.data = toByteArray(rawLicenseBase64);
           } catch (error) {
             // notify drm issue
+            this.logMessage("LicenseResponseError", JSON.stringify(error));
             this.onError(error, drmErrorCode);
           }
         }
@@ -366,6 +382,8 @@ class Video extends Component {
       } catch (error) {
         const { code } = error;
 
+        this.logMessage("Load error", JSON.stringify(error));
+
         // REQUESTED_KEY_SYSTEM_CONFIG_UNAVAILABLE
         if (code === 6001 && drmKeyRobustness !== lowestKeyRobustness) {
           // try lowering key security robustness
@@ -376,25 +394,25 @@ class Video extends Component {
         else if (code === 7000 || code === 7001) {
           // silently catch LOAD_INTERRUPTED (7000) and OPERATION_ABORTED (7001) errors when switching to a new stream
         } else {
-          console.log("LOAD", `${JSON.stringify(error)}`);
           throw error;
         }
       }
     } catch (error) {
+      this.logMessage("Player init error", JSON.stringify(error));
       this.onError(error);
     }
   }
 
   reloadSource(source) {
+    this.logMessage("reloadSource", source);
     // reinit player with new source
     this.initPlayer(source);
   }
 
   startProgressTimer() {
-    if (!this.progressTimer) {
-      this.onProgress();
-      this.progressTimer = setInterval(this.onProgress, progressUpdateInterval);
-    }
+    this.stopProgressTimer();
+    this.onProgress();
+    this.progressTimer = setInterval(this.onProgress, progressUpdateInterval);
   }
 
   utf8Encode(a) {
@@ -422,6 +440,7 @@ class Video extends Component {
            * name: NotAllowedError - autoplay is not supported
            * name: NotSupportedError - format is not supported
            */
+          this.logMessage("Player play error", JSON.stringify(error));
           this.onError({ code: e.name, message: e.message });
         });
     }
