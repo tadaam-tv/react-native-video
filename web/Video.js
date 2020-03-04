@@ -158,10 +158,12 @@ class Video extends Component {
     // get seekable duration from player's seekrange instead of video duration
     // for open streams this gives a correct result.
     let seekableDuration = 0;
+    const { player } = window;
     if (player) {
       const { start, end } = player.seekRange();
       seekableDuration = end - start;
     }
+    console.log("TizenPlayer", `seekableDuration: ${seekableDuration}`);
     return seekableDuration;
   }
 
