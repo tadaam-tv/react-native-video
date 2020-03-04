@@ -163,7 +163,6 @@ class Video extends Component {
       const { start, end } = player.seekRange();
       seekableDuration = end - start;
     }
-    console.log("TizenPlayer", `seekableDuration: ${seekableDuration}`);
     return seekableDuration;
   }
 
