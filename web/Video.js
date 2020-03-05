@@ -27,14 +27,6 @@ class Video extends Component {
 
       // create a player
       this.buildPlayer(video);
-
-      // init video
-      video.addEventListener("error", this.onErrorEvent);
-      video.addEventListener("ended", this.onEnd);
-      video.addEventListener("loadeddata", this.onLoad);
-      video.addEventListener("canplay", this.onReadyForDisplay);
-      video.addEventListener("pause", this.onPause);
-      video.addEventListener("play", this.onPlay);
     } else {
       // This browser does not have the minimum set of APIs we need.
       this.logMessage("Init", "Browser not supported!");
@@ -44,6 +36,13 @@ class Video extends Component {
   componentDidUpdate(prevProps) {
     const { paused, source } = this.props;
     const { paused: wasPaused, source: prevSource } = prevProps;
+
+    if (source.uri !== prevSource.uri) {
+      this.logMessage(
+        "video_update",
+        `source: ${source.uri} prevSource: ${prevSource.uri} paused: ${paused} wasPause: ${wasPaused}`
+      );
+    }
 
     // check for updated manifest uri
     if (source.uri !== prevSource.uri) {
@@ -59,19 +58,12 @@ class Video extends Component {
       if (wasPaused && !paused) {
         this.requestPlay();
       }
+    } else {
+      this.logMessage("error", "No video component");
     }
   }
 
   componentWillUnmount() {
-    const video = this.videoRef.current;
-    if (video) {
-      video.removeEventListener("error", this.onErrorEvent);
-      video.removeEventListener("ended", this.onEnd);
-      video.removeEventListener("loadeddata", this.onLoad);
-      video.removeEventListener("canplay", this.onReadyForDisplay);
-      video.removeEventListener("pause", this.onPause);
-      video.removeEventListener("play", this.onPlay);
-    }
     this.stopProgressTimer();
 
     // destroy player
@@ -86,6 +78,7 @@ class Video extends Component {
 
   // eslint-disable-next-line class-methods-use-this
   onError(error, code = null) {
+    this.logMessage("onError", JSON.stringify(error));
     // Log the error.
     const { onError } = this.props;
     if (onError) {
@@ -172,6 +165,8 @@ class Video extends Component {
       return;
     }
 
+    this.logMessage("onLoad");
+
     const { width, height, currentTime: currentPosition } = video;
     const payload = {
       currentPosition,
@@ -208,16 +203,40 @@ class Video extends Component {
       const { source } = this.props;
 
       // create player instance
-      window.player = new shaka.Player();
+      const player = new shaka.Player();
+      window.player = player;
 
       // attach video
       const video = this.videoRef.current;
       if (video) {
-        window.player.attach(video);
+        player.attach(video);
       }
+
+      // attach listeners
+      video.addEventListener("error", this.onErrorEvent);
+      video.addEventListener("ended", this.onEnd);
+      video.addEventListener("loadeddata", this.onLoad);
+      video.addEventListener("canplay", this.onReadyForDisplay);
+      video.addEventListener("pause", this.onPause);
+      video.addEventListener("play", this.onPlay);
 
       // intialize with media source
       await this.initPlayer(source);
+
+      // ensure playback
+      this.requestPlay();
+
+      player.addEventListener("error", this.onPlayerEvent("error"));
+      player.addEventListener(
+        "onstatechange",
+        this.onPlayerEvent("onstatechange")
+      );
+      player.addEventListener("streaming", this.onPlayerEvent("streaming"));
+      player.addEventListener("buffering", this.onPlayerEvent("buffering"));
+      player.addEventListener(
+        "abrstatuschanged",
+        this.onPlayerEvent("abrstatuschanged")
+      );
     } catch (error) {
       this.onError(error);
     }
@@ -230,9 +249,38 @@ class Video extends Component {
     }
   }
 
+  onPlayerEvent = type => data => {
+    this.logMessage(type, JSON.stringify(data));
+  };
+
   shutdownPlayer() {
+    // detach listeners
+    const video = this.videoRef.current;
+    if (video) {
+      video.removeEventListener("error", this.onErrorEvent);
+      video.removeEventListener("ended", this.onEnd);
+      video.removeEventListener("loadeddata", this.onLoad);
+      video.removeEventListener("canplay", this.onReadyForDisplay);
+      video.removeEventListener("pause", this.onPause);
+      video.removeEventListener("play", this.onPlay);
+    }
+
+    // detach and clean-up player
     const { player } = window;
     if (player) {
+      // remove listeners
+      player.removeEventListener("error", this.onPlayerEvent("error"));
+      player.removeEventListener(
+        "onstatechange",
+        this.onPlayerEvent("onstatechange")
+      );
+      player.removeEventListener("streaming", this.onPlayerEvent("streaming"));
+      player.removeEventListener("buffering", this.onPlayerEvent("buffering"));
+      player.removeEventListener(
+        "abrstatuschanged",
+        this.onPlayerEvent("abrstatuschanged")
+      );
+
       // detach from view
       player.detach();
       this.logMessage("shutdown");
@@ -428,8 +476,10 @@ class Video extends Component {
   }
 
   requestPlay() {
+    this.logMessage("requestPlay");
     const video = this.videoRef.current;
     if (!video) {
+      this.logMessage("error", "No video component");
       return;
     }
     const playPromise = video.play();
@@ -448,6 +498,7 @@ class Video extends Component {
   }
 
   paused(value) {
+    this.logMessage("paused", value);
     if (value) {
       this.videoRef.current.pause();
     } else {
