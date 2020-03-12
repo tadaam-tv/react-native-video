@@ -1,20 +1,23 @@
 import React, { Component } from "react";
-import { createElement } from "react-native";
+import { createElement, View } from "react-native";
 import { fromByteArray, toByteArray } from "base64-js";
 import shaka from "shaka-player";
 import PropTypes from "prop-types";
 import styles from "./Video.styles";
+import PlayerEventListener from './PlayerEventListener';
 
 const progressUpdateInterval = 250.0;
-const defaultKeyRobustness = "HW_SECURE_ALL";
-const lowestKeyRobustness = "SW_SECURE_CRYPTO";
 const drmErrorCode = "TDM_PLAYER_DRM011";
 
 class Video extends Component {
+
+  playerEventListener = null;
+
+  logTimer = null;
+
   constructor(props) {
     super(props);
     this.videoRef = React.createRef();
-    this.state = { drmKeyRobustness: defaultKeyRobustness };
   }
 
   componentDidMount() {
@@ -46,7 +49,7 @@ class Video extends Component {
 
     // check for updated manifest uri
     if (source.uri !== prevSource.uri) {
-      this.reloadSource(source);
+      this.reloadSource();
     }
 
     // check for play/pause changes
@@ -65,6 +68,8 @@ class Video extends Component {
 
   componentWillUnmount() {
     this.stopProgressTimer();
+
+    this.stopLogTimer();
 
     // destroy player
     this.shutdownPlayer();
@@ -200,8 +205,6 @@ class Video extends Component {
 
   async buildPlayer() {
     try {
-      const { source } = this.props;
-
       // create player instance
       const player = new shaka.Player();
       window.player = player;
@@ -211,7 +214,7 @@ class Video extends Component {
       if (video) {
         player.attach(video);
       }
-
+      
       // attach listeners
       video.addEventListener("error", this.onErrorEvent);
       video.addEventListener("ended", this.onEnd);
@@ -220,38 +223,25 @@ class Video extends Component {
       video.addEventListener("pause", this.onPause);
       video.addEventListener("play", this.onPlay);
 
+      playerEventListener = new PlayerEventListener();
+      playerEventListener.attach(player, this.logMessage);
+
       // intialize with media source
-      await this.initPlayer(source);
+      await this.initPlayer();
 
       // ensure playback
-      this.requestPlay();
-
-      player.addEventListener("error", this.onPlayerEvent("error"));
-      player.addEventListener(
-        "onstatechange",
-        this.onPlayerEvent("onstatechange")
-      );
-      player.addEventListener("streaming", this.onPlayerEvent("streaming"));
-      player.addEventListener("buffering", this.onPlayerEvent("buffering"));
-      player.addEventListener(
-        "abrstatuschanged",
-        this.onPlayerEvent("abrstatuschanged")
-      );
+      this.requestPlay();      
     } catch (error) {
       this.onError(error);
     }
   }
 
-  logMessage(msg, body) {
+  logMessage = (msg, body) => {
     const { onDebug } = this.props;
     if (onDebug) {
       onDebug(msg, body);
     }
   }
-
-  onPlayerEvent = type => data => {
-    this.logMessage(type, JSON.stringify(data));
-  };
 
   shutdownPlayer() {
     // detach listeners
@@ -269,17 +259,9 @@ class Video extends Component {
     const { player } = window;
     if (player) {
       // remove listeners
-      player.removeEventListener("error", this.onPlayerEvent("error"));
-      player.removeEventListener(
-        "onstatechange",
-        this.onPlayerEvent("onstatechange")
-      );
-      player.removeEventListener("streaming", this.onPlayerEvent("streaming"));
-      player.removeEventListener("buffering", this.onPlayerEvent("buffering"));
-      player.removeEventListener(
-        "abrstatuschanged",
-        this.onPlayerEvent("abrstatuschanged")
-      );
+      if (this.playerEventListener) {
+        this.playerEventListener.detach();
+      }
 
       // detach from view
       player.detach();
@@ -291,8 +273,9 @@ class Video extends Component {
     }
   }
 
-  async initPlayer(source) {
+  async initPlayer() {
     try {
+      const { source, config } = this.props;
       const { player } = window;
       const { uri, drm } = source;
       // ignore invalid source uri
@@ -303,68 +286,16 @@ class Video extends Component {
 
       // optional drm object
       const { customerId, deviceId, licenseUrl } = drm || {};
-      const { drmKeyRobustness } = this.state;
 
-      // reconfigure player
-      const configSuccess = player.configure({
-        // https://shaka-player-demo.appspot.com/docs/api/shaka.extern.html#.AbrConfiguration
-        abr: {
-          // bandwidthDowngradeTarget: The largest fraction of the estimated bandwidth we should use. We should downgrade to avoid this.
-          bandwidthDowngradeTarget: 0.95,
+      // configure player
+      const shakaConfig = config || buildShakaConfig(licenseUrl);
+      player.configure(shakaConfig);
 
-          // bandwidthUpgradeTarget: The fraction of the estimated bandwidth which we should try to use when upgrading.
-          bandwidthUpgradeTarget: 0.85,
-
-          // The default bandwidth estimate to use if there is not enough data, in bit/sec.
-          defaultBandwidthEstimate: 1200000,
-
-          // If true, enable adaptation by the current AbrManager.
-          enabled: true,
-
-          // The minimum amount of time that must pass between switches, in seconds. This keeps us from changing too often and annoying the user.
-          switchInterval: 10
-        },
-        // https://shaka-player-demo.appspot.com/docs/api/shaka.extern.html#.StreamingConfiguration
-        streaming: {
-          // The minimum number of seconds of content that the StreamingEngine must buffer before it can begin playback or can
-          // continue playback after it has entered into a buffering state (i.e., after it has depleted one more more of its buffers).
-          rebufferingGoal: 5,
-
-          // bufferingGoal: The number of seconds of content that the StreamingEngine will attempt to buffer ahead of the playhead.
-          // This value must be greater than or equal to the rebuffering goal.
-          bufferingGoal: 6
-        },
-        drm: {
-          servers: {
-            "com.widevine.alpha": licenseUrl
-          },
-          advanced: {
-            "com.widevine.alpha": {
-              persistentStateRequired: true,
-              videoRobustness: drmKeyRobustness,
-              audioRobustness: drmKeyRobustness
-              // videoRobustness: 'SW_SECURE_CRYPTO',
-              // audioRobustness: 'SW_SECURE_CRYPTO',
-            }
-          }
-        },
-        manifest: {
-          dash: {
-            ignoreMinBufferTime: true
-            // defaultPresentationDelay: 20,
-          }
-        }
-      });
-
-      this.logMessage("config", `success: ${configSuccess}`);
+      this.logMessage("configuration", JSON.stringify(player.getConfiguration()));
 
       // attach new request filter
       player.getNetworkingEngine().clearAllRequestFilters();
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
-        if (type === shaka.net.NetworkingEngine.RequestType.APP) {
-          // ignore
-        }
-
         if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
           request.allowCrossSiteCredentials = false;
           const wrapped = {};
@@ -390,13 +321,19 @@ class Video extends Component {
           const wrappedJson = JSON.stringify(wrapped);
           request.body = fromByteArray(new TextEncoder().encode(wrappedJson));
 
-          this.logMessage("LicenseRequest", request.body);
+          this.logMessage("network license request", request.body);
         }
       });
 
       // attach new response filter
       player.getNetworkingEngine().clearAllResponseFilters();
       player.getNetworkingEngine().registerResponseFilter((type, response) => {
+        if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST) {
+          this.logMessage("network manifest", JSON.stringify(response));
+        }
+        if (type === shaka.net.NetworkingEngine.RequestType.SEGMENT) {
+          this.logMessage("network segment", JSON.stringify(response));
+        }
         // Only manipulate license responses:
         if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
           try {
@@ -404,7 +341,8 @@ class Video extends Component {
               String,
               new Uint8Array(response.data)
             );
-            this.logMessage("LicenseResponse", responseString);
+            //this.logMessage("LicenseResponse", responseString);
+            this.logMessage("network license", 'response received');
             let responseJson;
             try {
               responseJson = JSON.parse(responseString);
@@ -419,25 +357,59 @@ class Video extends Component {
             response.data = toByteArray(rawLicenseBase64);
           } catch (error) {
             // notify drm issue
-            this.logMessage("LicenseResponseError", JSON.stringify(error));
+            this.logMessage("network license error", JSON.stringify(error));
             this.onError(error, drmErrorCode);
           }
+        }
+        if (type === shaka.net.NetworkingEngine.RequestType.APP) {
+          this.logMessage("network app", JSON.stringify(response));
+        }
+        if (type === shaka.net.NetworkingEngine.RequestType.TIMING) {
+          this.logMessage("network timing", JSON.stringify(response));
         }
       });
 
       // load media resource
       try {
         await player.load(uri);
+        
+        // log seek range
+        this.logMessage("seekRange", JSON.stringify(player.seekRange()));
+
+        // log interval
+        this.stopLogTimer();
+        this.logTimer = setInterval(() => {
+          const isLive = player.isLive();
+          if (isLive) {
+            const presentationStartTime = player.getPresentationStartTimeAsDate();
+            const playheadTime = player.getPlayheadTimeAsDate();
+            const bufferedInfo = player.getBufferedInfo();
+            const isBuffering = player.isBuffering();
+            const isInProgress = player.isInProgress();
+            this.logMessage('status', `isBuffering: ${isBuffering}; isInProgress: ${isInProgress}`);
+            this.logManifest(player.getManifest());
+            this.logMessage("live presentationStart time", presentationStartTime.toLocaleString());
+            this.logMessage("live playhead time", playheadTime.toLocaleString());
+            const { total } = bufferedInfo;
+            if (total && total.length > 0) {
+              const s = total[0].start;
+              const e = total[0].end;
+              const t0 = new Date(presentationStartTime);
+              t0.setSeconds(t0.getSeconds() + s);
+              const t1 = new Date(presentationStartTime);
+              t1.setSeconds(t1.getSeconds() + e);
+              this.logMessage("buffered time", `[${t0.toLocaleString()} to ${t1.toLocaleString()}]`);
+            }
+          }
+        }, 2500);
       } catch (error) {
         const { code } = error;
 
-        this.logMessage("Load error", JSON.stringify(error));
+        this.logMessage("error", JSON.stringify(error));
 
         // REQUESTED_KEY_SYSTEM_CONFIG_UNAVAILABLE
-        if (code === 6001 && drmKeyRobustness !== lowestKeyRobustness) {
-          // try lowering key security robustness
-          this.state = { drmKeyRobustness: lowestKeyRobustness };
-          this.initPlayer(source);
+        if (code === 6001) {
+          // TODO: try lowering key security robustness
         }
         // LOAD_INTERRUPTED || OPERATION_ABORTED
         else if (code === 7000 || code === 7001) {
@@ -446,16 +418,46 @@ class Video extends Component {
           throw error;
         }
       }
+
+      const drmInfo = player.drmInfo();
+      this.logMessage('drmInfo', JSON.stringify(drmInfo));
+
     } catch (error) {
       this.logMessage("Player init error", JSON.stringify(error));
       this.onError(error);
     }
   }
 
-  reloadSource(source) {
-    this.logMessage("reloadSource", source);
+  epochToString(sec) {
+    const t = new Date(null);
+    t.setSeconds(sec);
+    return t.toLocaleString();
+  }
+
+  logManifest(manifest) {
+    if (manifest) {
+      const tl = manifest.presentationTimeline;
+      const delay = tl.getDelay();
+      const maxSegmentDuration = tl.getMaxSegmentDuration();
+      // const presStartTime = this.epochToString(tl.getPresentationStartTime());
+      const seekRangeStart = this.epochToString(tl.getPresentationStartTime() + tl.getSeekRangeStart());
+      const seekRangeEnd = this.epochToString(tl.getPresentationStartTime() + tl.getSeekRangeEnd());
+      const usingPresentationStartTime = tl.usingPresentationStartTime();
+      //const isInProgress = tl.isInProgress();
+      let body = "";
+      //body += `isInProgress: ${isInProgress}; `;
+      body += `delay: ${delay}s; `;
+      body += `maxSegmentDuration: ${maxSegmentDuration}s; `;
+      body += `seekRange: [${seekRangeStart} - ${seekRangeEnd}]; `;
+      body += `usingPresentationStartTime: ${usingPresentationStartTime}; `;
+      this.logMessage("manifest", body);
+    }
+  }
+
+  reloadSource() {
+    this.logMessage("reloadSource");
     // reinit player with new source
-    this.initPlayer(source);
+    this.initPlayer();
   }
 
   startProgressTimer() {
@@ -472,6 +474,13 @@ class Video extends Component {
     if (this.progressTimer) {
       clearInterval(this.progressTimer);
       this.progressTimer = null;
+    }
+  }
+
+  stopLogTimer() {
+    if (this.logTimer) {
+      clearInterval(this.logTimer);
+      this.logTimer = null;
     }
   }
 
@@ -512,6 +521,7 @@ class Video extends Component {
 
   render() {
     const { repeat, style, resizeMode } = this.props;
+
     const videoElement = createElement("video", {
       ref: this.videoRef,
       autoPlay: true,
@@ -526,6 +536,7 @@ Video.propTypes = {
   repeat: PropTypes.bool,
   autoPlay: PropTypes.bool,
   paused: PropTypes.bool,
+  config: PropTypes.shape({}),
   source: PropTypes.shape({
     uri: PropTypes.string,
     drm: PropTypes.shape({
@@ -539,7 +550,8 @@ Video.propTypes = {
   onProgress: PropTypes.func,
   onReadyForDisplay: PropTypes.func,
   onEnd: PropTypes.func,
-  onError: PropTypes.func
+  onError: PropTypes.func,
+  onDebug: PropTypes.func,
 };
 
 Video.defaultProps = {
@@ -554,7 +566,8 @@ Video.defaultProps = {
   onProgress: () => {},
   onReadyForDisplay: () => {},
   onEnd: () => {},
-  onError: () => {}
+  onError: () => {},
+  onDebug: () => {}
 };
 
 export default Video;
