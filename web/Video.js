@@ -1,16 +1,15 @@
 import React, { Component } from "react";
 import { createElement, View } from "react-native";
 import { fromByteArray, toByteArray } from "base64-js";
-import shaka from "shaka-player";
+import shaka from "shaka-player/dist/shaka-player.compiled";
 import PropTypes from "prop-types";
 import styles from "./Video.styles";
-import PlayerEventListener from './PlayerEventListener';
+import PlayerEventListener from "./PlayerEventListener";
 
 const progressUpdateInterval = 250.0;
 const drmErrorCode = "TDM_PLAYER_DRM011";
 
 class Video extends Component {
-
   playerEventListener = null;
 
   logTimer = null;
@@ -22,7 +21,8 @@ class Video extends Component {
 
   componentDidMount() {
     // Install built-in polyfills to patch browser incompatibilities.
-    shaka.polyfill.installAll();
+    //shaka.polyfill.installAll();
+    //shaka.log.setLevel(shaka.log.Level.V1);
 
     // Check to see if the browser supports the basic APIs Shaka needs.
     if (shaka.Player.isBrowserSupported()) {
@@ -212,9 +212,9 @@ class Video extends Component {
       // attach video
       const video = this.videoRef.current;
       if (video) {
-        player.attach(video);
+        await player.attach(video);
       }
-      
+
       // attach listeners
       video.addEventListener("error", this.onErrorEvent);
       video.addEventListener("ended", this.onEnd);
@@ -228,9 +228,6 @@ class Video extends Component {
 
       // intialize with media source
       await this.initPlayer();
-
-      // ensure playback
-      this.requestPlay();      
     } catch (error) {
       this.onError(error);
     }
@@ -241,7 +238,7 @@ class Video extends Component {
     if (onDebug) {
       onDebug(msg, body);
     }
-  }
+  };
 
   shutdownPlayer() {
     // detach listeners
@@ -263,13 +260,13 @@ class Video extends Component {
         this.playerEventListener.detach();
       }
 
-      // detach from view
-      player.detach();
-      this.logMessage("shutdown");
-
       // make sure no request/response filters are registered
       player.getNetworkingEngine().clearAllRequestFilters();
       player.getNetworkingEngine().clearAllResponseFilters();
+
+      // detach from view
+      player.detach();
+      this.logMessage("shutdown");
     }
   }
 
@@ -291,7 +288,10 @@ class Video extends Component {
       const shakaConfig = config || buildShakaConfig(licenseUrl);
       player.configure(shakaConfig);
 
-      this.logMessage("configuration", JSON.stringify(player.getConfiguration()));
+      this.logMessage(
+        "configuration",
+        JSON.stringify(player.getConfiguration())
+      );
 
       // attach new request filter
       player.getNetworkingEngine().clearAllRequestFilters();
@@ -341,8 +341,7 @@ class Video extends Component {
               String,
               new Uint8Array(response.data)
             );
-            //this.logMessage("LicenseResponse", responseString);
-            this.logMessage("network license", 'response received');
+            this.logMessage("network license", responseString);
             let responseJson;
             try {
               responseJson = JSON.parse(responseString);
@@ -372,7 +371,7 @@ class Video extends Component {
       // load media resource
       try {
         await player.load(uri);
-        
+
         // log seek range
         this.logMessage("seekRange", JSON.stringify(player.seekRange()));
 
@@ -386,10 +385,19 @@ class Video extends Component {
             const bufferedInfo = player.getBufferedInfo();
             const isBuffering = player.isBuffering();
             const isInProgress = player.isInProgress();
-            this.logMessage('status', `isBuffering: ${isBuffering}; isInProgress: ${isInProgress}`);
+            this.logMessage(
+              "status",
+              `isBuffering: ${isBuffering}; isInProgress: ${isInProgress}`
+            );
             this.logManifest(player.getManifest());
-            this.logMessage("live presentationStart time", presentationStartTime.toLocaleString());
-            this.logMessage("live playhead time", playheadTime.toLocaleString());
+            this.logMessage(
+              "live presentationStart time",
+              presentationStartTime.toLocaleString()
+            );
+            this.logMessage(
+              "live playhead time",
+              playheadTime.toLocaleString()
+            );
             const { total } = bufferedInfo;
             if (total && total.length > 0) {
               const s = total[0].start;
@@ -398,7 +406,10 @@ class Video extends Component {
               t0.setSeconds(t0.getSeconds() + s);
               const t1 = new Date(presentationStartTime);
               t1.setSeconds(t1.getSeconds() + e);
-              this.logMessage("buffered time", `[${t0.toLocaleString()} to ${t1.toLocaleString()}]`);
+              this.logMessage(
+                "buffered time",
+                `[${t0.toLocaleString()} to ${t1.toLocaleString()}]`
+              );
             }
           }
         }, 2500);
@@ -420,8 +431,7 @@ class Video extends Component {
       }
 
       const drmInfo = player.drmInfo();
-      this.logMessage('drmInfo', JSON.stringify(drmInfo));
-
+      this.logMessage("drmInfo", JSON.stringify(drmInfo));
     } catch (error) {
       this.logMessage("Player init error", JSON.stringify(error));
       this.onError(error);
@@ -440,8 +450,12 @@ class Video extends Component {
       const delay = tl.getDelay();
       const maxSegmentDuration = tl.getMaxSegmentDuration();
       // const presStartTime = this.epochToString(tl.getPresentationStartTime());
-      const seekRangeStart = this.epochToString(tl.getPresentationStartTime() + tl.getSeekRangeStart());
-      const seekRangeEnd = this.epochToString(tl.getPresentationStartTime() + tl.getSeekRangeEnd());
+      const seekRangeStart = this.epochToString(
+        tl.getPresentationStartTime() + tl.getSeekRangeStart()
+      );
+      const seekRangeEnd = this.epochToString(
+        tl.getPresentationStartTime() + tl.getSeekRangeEnd()
+      );
       const usingPresentationStartTime = tl.usingPresentationStartTime();
       //const isInProgress = tl.isInProgress();
       let body = "";
@@ -484,25 +498,22 @@ class Video extends Component {
     }
   }
 
-  requestPlay() {
+  async requestPlay() {
     this.logMessage("requestPlay");
     const video = this.videoRef.current;
     if (!video) {
       this.logMessage("error", "No video component");
       return;
     }
-    const playPromise = video.play();
-    if (playPromise) {
-      playPromise
-        .then(() => {})
-        .catch(e => {
-          /* This is likely one of:
-           * name: NotAllowedError - autoplay is not supported
-           * name: NotSupportedError - format is not supported
-           */
-          this.logMessage("Player play error", JSON.stringify(error));
-          this.onError({ code: e.name, message: e.message });
-        });
+    try {
+      await video.play();
+    } catch (error) {
+      /* This is likely one of:
+       * name: NotAllowedError - autoplay is not supported
+       * name: NotSupportedError - format is not supported
+       */
+      this.logMessage("Player play error", JSON.stringify(error));
+      this.onError({ code: error.name, message: error.message });
     }
   }
 
@@ -526,6 +537,7 @@ class Video extends Component {
       ref: this.videoRef,
       autoPlay: true,
       loop: repeat,
+      controls: true,
       style: [style, styles.video, { objectFit: resizeMode }]
     });
     return videoElement;
@@ -551,7 +563,7 @@ Video.propTypes = {
   onReadyForDisplay: PropTypes.func,
   onEnd: PropTypes.func,
   onError: PropTypes.func,
-  onDebug: PropTypes.func,
+  onDebug: PropTypes.func
 };
 
 Video.defaultProps = {
