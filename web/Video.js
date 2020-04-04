@@ -213,7 +213,7 @@ class Video extends Component {
       // attach video
       const video = this.videoRef.current;
       if (video) {
-        window.player.attach(video);
+        await window.player.attach(video);
       }
 
       // intialize with media source
@@ -488,7 +488,8 @@ Video.propTypes = {
   onProgress: PropTypes.func,
   onReadyForDisplay: PropTypes.func,
   onEnd: PropTypes.func,
-  onError: PropTypes.func
+  onError: PropTypes.func,
+  onDebug: PropTypes.func
 };
 
 Video.defaultProps = {
@@ -503,7 +504,8 @@ Video.defaultProps = {
   onProgress: () => {},
   onReadyForDisplay: () => {},
   onEnd: () => {},
-  onError: () => {}
+  onError: () => {},
+  onDebug: () => {}
 };
 
 export default Video;

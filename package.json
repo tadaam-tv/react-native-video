@@ -1,6 +1,6 @@
 {
   "name": "react-native-video",
-  "version": "5.1.0-alpha1-19a",
+  "version": "5.1.0-alpha1-20",
   "description": "A <Video /> element for react-native",
   "main": "Video",
   "license": "MIT",
@@ -40,7 +40,7 @@
   "dependencies": {
     "keymirror": "^0.1.1",
     "prop-types": "^15.5.10",
-    "shaka-player": "^2.4.4"
+    "shaka-player": "^2.5.10"
   },
   "scripts": {
     "test": "node_modules/.bin/eslint *.js"
