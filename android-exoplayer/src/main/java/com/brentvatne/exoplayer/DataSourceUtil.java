@@ -29,7 +29,7 @@ public class DataSourceUtil {
     }
 
     public static String getUserAgent(ReactContext context) {
-        if (userAgent == null) {
+        if (userAgent == null && context != null) {
             userAgent = Util.getUserAgent(context, "ReactNativeVideo");
         }
         return userAgent;
