@@ -5,10 +5,12 @@ import PropTypes from "prop-types";
 import styles from "./Video.styles";
 import PlayerEventListener from "./PlayerEventListener";
 import LicenseHelper from "./LicenseHelper";
+import buildDefaultShakaConfig from './Video.config';
 const progressUpdateInterval = 250.0;
-const drmErrorCode = "TDM_PLAYER_DRM011";
 
-//const shaka = window.shaka;
+const defaultKeyRobustness = "HW_SECURE_ALL";
+const lowestKeyRobustness = "SW_SECURE_CRYPTO";
+const drmErrorCode = "TDM_PLAYER_DRM011";
 
 class Video extends Component {
   playerEventListener = null;
@@ -16,6 +18,7 @@ class Video extends Component {
   constructor(props) {
     super(props);
     this.videoRef = React.createRef();
+    this.state = { drmKeyRobustness: defaultKeyRobustness };
   }
 
   initLog() {
@@ -237,6 +240,7 @@ class Video extends Component {
   }
 
   logMessage = (msg, body) => {
+    console.log(msg, body);
     const { onDebug } = this.props;
     if (onDebug) {
       onDebug(msg, body);
@@ -289,11 +293,12 @@ class Video extends Component {
       this.logMessage("init", JSON.stringify(source));
 
       // optional drm object
-      const { customerId, deviceId, licenseUrl, drmMethod } = drm || {};
+      const { customerId, deviceId, licenseUrl, drmType } = drm || {};
 
       // configure player
-      const shakaConfig = config || buildShakaConfig(licenseUrl);
-      player.configure(shakaConfig);
+      const { drmKeyRobustness } = this.state;
+      const shakaConfig = config || buildDefaultShakaConfig(licenseUrl, drmType, drmKeyRobustness);
+      const configSuccess = player.configure(shakaConfig);
 
       this.logMessage(
         "configuration",
@@ -304,7 +309,7 @@ class Video extends Component {
       player.getNetworkingEngine().clearAllRequestFilters();
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
-          if (drmMethod === "PLAYREADY") {
+          if (drmType === "playready") {
             return LicenseHelper.buildPlayReadyRequest(customerId, deviceId, request);
           } else {
             return LicenseHelper.buildWidevineRequest(customerId, deviceId, request);
@@ -325,7 +330,7 @@ class Video extends Component {
         if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
           try {
             // check license type
-            if (drmMethod === "PLAYREADY") {
+            if (drmType === "playready") {
               return LicenseHelper.handlePlayReadyResponse(response);
             } else {
               return LicenseHelper.handleWidevineResponse(response);
@@ -356,8 +361,11 @@ class Video extends Component {
         this.logMessage("error", JSON.stringify(error));
 
         // REQUESTED_KEY_SYSTEM_CONFIG_UNAVAILABLE
-        if (code === 6001) {
-          // TODO: try lowering key security robustness
+        const { drmKeyRobustness } = this.state;
+        if (code === 6001 && drmKeyRobustness !== lowestKeyRobustness) {
+          // try lowering key security robustness
+          this.state = { drmKeyRobustness: lowestKeyRobustness };
+          this.initPlayer(source);
         }
         // LOAD_INTERRUPTED || OPERATION_ABORTED
         else if (code === 7000 || code === 7001) {
@@ -488,7 +496,7 @@ class Video extends Component {
       ref: this.videoRef,
       autoPlay: true,
       loop: repeat,
-      controls: true,
+      controls: false,
       style: [style, styles.video, { objectFit: resizeMode }]
     });
     return videoElement;
