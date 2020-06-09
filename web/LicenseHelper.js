@@ -7,7 +7,7 @@ class LicenseHelper {
     wrapped.LatensRegistration = {
       CustomerName: customerId,
       AccountName: "PlayReadyAccount",
-      PortalId: deviceId + "dde",
+      PortalId: deviceId,
       FriendlyName: "ShakaPlayer",
       DeviceInfo: {
         FormatVersion: "1",
