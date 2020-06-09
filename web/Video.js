@@ -1,11 +1,11 @@
 import React, { Component } from "react";
 import { createElement, View } from "react-native";
-import shaka from 'shaka-player';
+import shaka from "shaka-player";
 import PropTypes from "prop-types";
 import styles from "./Video.styles";
 import PlayerEventListener from "./PlayerEventListener";
 import LicenseHelper from "./LicenseHelper";
-import buildDefaultShakaConfig from './Video.config';
+import buildDefaultShakaConfig from "./Video.config";
 const progressUpdateInterval = 250.0;
 
 const defaultKeyRobustness = "HW_SECURE_ALL";
@@ -81,11 +81,21 @@ class Video extends Component {
     this.shutdownPlayer();
   }
 
-  onErrorEvent(event) {
-    this.logMessage("onErrorEvent", JSON.stringify(event));
+  onPlayerErrorEvent = (event) => {
     // Extract the shaka.util.Error object from the event.
-    this.onError(event.detail);
-  }
+    const { detail } = event;
+
+    // optionally extract code
+    var code = null;
+    if (detail) {
+      code = detail.code;
+      // map DRM failure to known DRM error code
+      if (code === 6007 /*LICENSE_REQUEST_FAILED*/) {
+        code = drmErrorCode;
+      }
+    }
+    this.onError(detail, code);
+  };
 
   // eslint-disable-next-line class-methods-use-this
   onError(error, code = null) {
@@ -97,8 +107,8 @@ class Video extends Component {
         error: {
           title: "Native player error",
           message: `${JSON.stringify(error)}`,
-          code
-        }
+          code,
+        },
       });
     }
   }
@@ -118,7 +128,7 @@ class Video extends Component {
     const payload = {
       currentTime: video.currentTime,
       seekableDuration: this.seekableDuration,
-      streamBitRate: bandwidth
+      streamBitRate: bandwidth,
     };
 
     // notify
@@ -185,8 +195,8 @@ class Video extends Component {
       naturalSize: {
         width,
         height,
-        orientation: width >= height ? "landscape" : "portrait"
-      }
+        orientation: width >= height ? "landscape" : "portrait",
+      },
     };
     // notify
     const { onLoad } = this.props;
@@ -222,7 +232,7 @@ class Video extends Component {
       }
 
       // attach listeners
-      video.addEventListener("error", this.onErrorEvent);
+      video.addEventListener("error", this.onPlayerErrorEvent);
       video.addEventListener("ended", this.onEnd);
       video.addEventListener("loadeddata", this.onLoad);
       video.addEventListener("canplay", this.onReadyForDisplay);
@@ -231,6 +241,7 @@ class Video extends Component {
 
       playerEventListener = new PlayerEventListener();
       playerEventListener.attach(player, this.logMessage);
+      player.addEventListener("error", this.onPlayerErrorEvent);
 
       // intialize with media source
       await this.initPlayer();
@@ -248,14 +259,14 @@ class Video extends Component {
   };
 
   get playerVersion() {
-    return shaka? shaka.Player.version + '_fix' : null;
+    return shaka ? shaka.Player.version + "_fix" : null;
   }
 
   shutdownPlayer() {
     // detach listeners
     const video = this.videoRef.current;
     if (video) {
-      video.removeEventListener("error", this.onErrorEvent);
+      video.removeEventListener("error", this.onPlayerErrorEvent);
       video.removeEventListener("ended", this.onEnd);
       video.removeEventListener("loadeddata", this.onLoad);
       video.removeEventListener("canplay", this.onReadyForDisplay);
@@ -270,6 +281,7 @@ class Video extends Component {
       if (this.playerEventListener) {
         this.playerEventListener.detach();
       }
+      player.removeEventListener("error", this.onPlayerErrorEvent);
 
       // make sure no request/response filters are registered
       player.getNetworkingEngine().clearAllRequestFilters();
@@ -297,7 +309,9 @@ class Video extends Component {
 
       // configure player
       const { drmKeyRobustness } = this.state;
-      const shakaConfig = config || buildDefaultShakaConfig(licenseUrl, drmType, drmKeyRobustness);
+      const shakaConfig =
+        config ||
+        buildDefaultShakaConfig(licenseUrl, drmType, drmKeyRobustness);
       const configSuccess = player.configure(shakaConfig);
 
       this.logMessage(
@@ -310,9 +324,17 @@ class Video extends Component {
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
           if (drmType === "playready") {
-            return LicenseHelper.buildPlayReadyRequest(customerId, deviceId, request);
+            return LicenseHelper.buildPlayReadyRequest(
+              customerId,
+              deviceId,
+              request
+            );
           } else {
-            return LicenseHelper.buildWidevineRequest(customerId, deviceId, request);
+            return LicenseHelper.buildWidevineRequest(
+              customerId,
+              deviceId,
+              request
+            );
           }
         }
       });
@@ -385,22 +407,19 @@ class Video extends Component {
 
   logExpiration(player) {
     const exp = player.getExpiration();
-    const expStr = exp === Infinity? 'Infinity' : new Date(player.getExpiration()).toISOString();
+    const expStr =
+      exp === Infinity
+        ? "Infinity"
+        : new Date(player.getExpiration()).toISOString();
     this.logMessage(
       "expiration time",
       `next expiration time for any EME session: ${expStr}`
     );
     if (player.drmEngine_) {
       const sessionIds = player.drmEngine_.getSessionIds();
-      this.logMessage(
-        "session ids",
-        `${JSON.stringify(sessionIds)}`
-      );
+      this.logMessage("session ids", `${JSON.stringify(sessionIds)}`);
       const keyIds = player.drmEngine_.keyStatusByKeyId_;
-      this.logMessage(
-        "keyIds",
-        `${JSON.stringify(keyIds)}`
-      );
+      this.logMessage("keyIds", `${JSON.stringify(keyIds)}`);
     }
   }
 
@@ -497,7 +516,7 @@ class Video extends Component {
       autoPlay: true,
       loop: repeat,
       controls: false,
-      style: [style, styles.video, { objectFit: resizeMode }]
+      style: [style, styles.video, { objectFit: resizeMode }],
     });
     return videoElement;
   }
@@ -514,15 +533,15 @@ Video.propTypes = {
       licenseUrl: PropTypes.string,
       deviceId: PropTypes.string,
       customerId: PropTypes.string,
-      castToken: PropTypes.string
-    })
+      castToken: PropTypes.string,
+    }),
   }),
   onLoad: PropTypes.func,
   onProgress: PropTypes.func,
   onReadyForDisplay: PropTypes.func,
   onEnd: PropTypes.func,
   onError: PropTypes.func,
-  onDebug: PropTypes.func
+  onDebug: PropTypes.func,
 };
 
 Video.defaultProps = {
@@ -531,14 +550,14 @@ Video.defaultProps = {
   paused: false,
   source: {
     uri: null,
-    drm: {}
+    drm: {},
   },
   onLoad: () => {},
   onProgress: () => {},
   onReadyForDisplay: () => {},
   onEnd: () => {},
   onError: () => {},
-  onDebug: () => {}
+  onDebug: () => {},
 };
 
 export default Video;

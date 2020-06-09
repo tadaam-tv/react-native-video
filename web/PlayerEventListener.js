@@ -65,7 +65,7 @@ class PlayerEventListener {
     );
   }
 
-  onPlayerAbrStatusChangedEvent = data => {
+  onPlayerAbrStatusChangedEvent = (data) => {
     this.onLogMessage("abrstatuschanged", `enabled: ${data && data.newStatus}`);
   };
 
@@ -76,7 +76,7 @@ class PlayerEventListener {
     );
   };
 
-  onPlayerBufferingEvent = data => {
+  onPlayerBufferingEvent = (data) => {
     this.onLogMessage("buffering", data && data.buffering);
   };
 
@@ -87,11 +87,11 @@ class PlayerEventListener {
     );
   };
 
-  onPlayerEmsgEvent = data => {
+  onPlayerEmsgEvent = (data) => {
     this.onLogMessage("emsg", data && JSON.stringify(data.detail));
   };
 
-  onPlayerErrorEvent = data => {
+  onPlayerErrorEvent = (data) => {
     this.onLogMessage("error", data && JSON.stringify(data.detail));
   };
 
@@ -102,11 +102,12 @@ class PlayerEventListener {
     );
   };
 
-  onPlayerLargeGapEvent = data => {
+  onPlayerLargeGapEvent = (data) => {
     this.onLogMessage(
       "largegap",
-      `the playhead enters a large gap: currenTime=${data &&
-        data.currentTime}; gapSize=${data && data.gapSize}`
+      `the playhead enters a large gap: currenTime=${
+        data && data.currentTime
+      }; gapSize=${data && data.gapSize}`
     );
   };
 
@@ -118,11 +119,11 @@ class PlayerEventListener {
     this.onLogMessage("manifestparsed", `the manifest has been parsed`);
   };
 
-  onPlayerStateChangeEvent = data => {
+  onPlayerStateChangeEvent = (data) => {
     this.onLogMessage("onstatechange", `${data && JSON.stringify(data.state)}`);
   };
 
-  onPlayerStateIdleEvent = data => {
+  onPlayerStateIdleEvent = (data) => {
     this.onLogMessage("onstateidle", `state: ${data && data.state}`);
   };
 
